@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -15,14 +15,26 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import CURRENCY_EURO, UnitOfMass
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import slugify
+from homeassistant.helpers.event import async_track_time_change
+from homeassistant.util import dt as dt_util, slugify
 
 from .api import InterrandData, Transaction
-from .const import DOMAIN
-from .coordinator import InterrandConfigEntry, InterrandCoordinator
+from .coordinator import InterrandConfigEntry, InterrandCoordinator, RecycleCoordinator
+from .entity import InterrandEntity
+from .recycle_api import Collection
+
+FRACTION_ICONS = {
+    "restafval": "mdi:trash-can",
+    "gft": "mdi:leaf",
+    "pmd": "mdi:recycle",
+    "papier": "mdi:newspaper-variant-outline",
+    "glas": "mdi:bottle-wine",
+    "grofvuil": "mdi:sofa",
+    "kerstbomen": "mdi:pine-tree",
+    "textiel": "mdi:tshirt-crew",
+    "snoeihout": "mdi:tree",
+}
 
 
 def _latest(data: InterrandData, tx_type: str | None = None) -> Transaction | None:
@@ -95,47 +107,52 @@ async def async_setup_entry(
     entry: InterrandConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator = entry.runtime_data
-    async_add_entities(InterrandSensor(coordinator, description) for description in SENSORS)
+    portal = entry.runtime_data.portal
+    recycle = entry.runtime_data.recycle
+    async_add_entities(InterrandSensor(portal, entry, description) for description in SENSORS)
 
-    # The portal lists one "Volgende inzameling <fraction>" line per container,
-    # so collection sensors are created for whatever fractions show up.
+    # One sensor per fraction, created for whatever fractions show up.
     known: set[str] = set()
+
+    if recycle is None:
+        # No address configured: fall back to the dates on the portal page.
+        @callback
+        def _add_portal_collection_sensors() -> None:
+            new = [f for f in portal.data.collections if f not in known]
+            known.update(new)
+            if new:
+                async_add_entities(PortalCollectionSensor(portal, entry, f) for f in new)
+
+        _add_portal_collection_sensors()
+        entry.async_on_unload(portal.async_add_listener(_add_portal_collection_sensors))
+        return
 
     @callback
     def _add_collection_sensors() -> None:
-        new = [f for f in coordinator.data.collections if f not in known]
+        fractions = {c.fraction_id: c.short_name for c in recycle.data.collections}
+        new = [fid for fid in fractions if fid not in known]
         known.update(new)
         if new:
-            async_add_entities(InterrandCollectionSensor(coordinator, fraction) for fraction in new)
+            async_add_entities(
+                CollectionSensor(recycle, entry, fid, fractions[fid]) for fid in new
+            )
 
     _add_collection_sensors()
-    entry.async_on_unload(coordinator.async_add_listener(_add_collection_sensors))
+    entry.async_on_unload(recycle.async_add_listener(_add_collection_sensors))
 
 
-class InterrandEntity(CoordinatorEntity[InterrandCoordinator]):
-    _attr_has_entity_name = True
-
-    def __init__(self, coordinator: InterrandCoordinator) -> None:
-        super().__init__(coordinator)
-        entry = coordinator.config_entry
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.unique_id or entry.entry_id)},
-            name="Interrand",
-            manufacturer="Interrand",
-            model=coordinator.data.address,
-            entry_type=DeviceEntryType.SERVICE,
-            configuration_url="https://www.mijninterrand.be/Aansluitpunten/Verrichtingen",
-        )
-
-
-class InterrandSensor(InterrandEntity, SensorEntity):
+class InterrandSensor(InterrandEntity[InterrandCoordinator], SensorEntity):
     entity_description: InterrandSensorDescription
 
-    def __init__(self, coordinator: InterrandCoordinator, description: InterrandSensorDescription) -> None:
-        super().__init__(coordinator)
+    def __init__(
+        self,
+        coordinator: InterrandCoordinator,
+        entry: InterrandConfigEntry,
+        description: InterrandSensorDescription,
+    ) -> None:
+        super().__init__(coordinator, entry)
         self.entity_description = description
-        self._attr_unique_id = f"{coordinator.config_entry.unique_id}_{description.key}"
+        self._attr_unique_id = f"{entry.unique_id}_{description.key}"
 
     @property
     def native_value(self) -> Decimal | float | date | None:
@@ -146,15 +163,76 @@ class InterrandSensor(InterrandEntity, SensorEntity):
         return self.entity_description.attrs_fn(self.coordinator.data)
 
 
-class InterrandCollectionSensor(InterrandEntity, SensorEntity):
+class CollectionSensor(InterrandEntity[RecycleCoordinator], SensorEntity):
+    """Next collection date of one fraction, from the Recycle! calendar."""
+
+    _attr_device_class = SensorDeviceClass.DATE
+    _attr_translation_key = "next_collection"
+
+    def __init__(
+        self,
+        coordinator: RecycleCoordinator,
+        entry: InterrandConfigEntry,
+        fraction_id: str,
+        short_name: str,
+    ) -> None:
+        super().__init__(coordinator, entry)
+        self._fraction_id = fraction_id
+        self._attr_unique_id = f"{entry.unique_id}_collection_{fraction_id}"
+        self._attr_translation_placeholders = {"fraction": short_name}
+        slug = slugify(short_name)
+        self._attr_icon = next(
+            (icon for key, icon in FRACTION_ICONS.items() if slug.startswith(key)), "mdi:trash-can"
+        )
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # Move on to the next date right after midnight, without refetching.
+        self.async_on_remove(
+            async_track_time_change(self.hass, self._async_midnight, hour=0, minute=0, second=5)
+        )
+
+    @callback
+    def _async_midnight(self, _now: datetime) -> None:
+        self.async_write_ha_state()
+
+    def _upcoming(self) -> list[Collection]:
+        today = dt_util.now().date()
+        return [
+            c
+            for c in self.coordinator.data.collections
+            if c.fraction_id == self._fraction_id and c.date >= today
+        ]
+
+    @property
+    def native_value(self) -> date | None:
+        upcoming = self._upcoming()
+        return upcoming[0].date if upcoming else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        upcoming = self._upcoming()
+        if not upcoming:
+            return {}
+        return {
+            "fraction": upcoming[0].fraction_name,
+            "days_until": (upcoming[0].date - dt_util.now().date()).days,
+            "upcoming": [c.date.isoformat() for c in upcoming[:5]],
+            "color": upcoming[0].color,
+        }
+
+
+class PortalCollectionSensor(InterrandEntity[InterrandCoordinator], SensorEntity):
+    """Next collection date as shown on the portal, used when no address is configured."""
+
     _attr_device_class = SensorDeviceClass.DATE
     _attr_translation_key = "next_collection"
     _attr_icon = "mdi:trash-can"
 
-    def __init__(self, coordinator: InterrandCoordinator, fraction: str) -> None:
-        super().__init__(coordinator)
+    def __init__(self, coordinator: InterrandCoordinator, entry: InterrandConfigEntry, fraction: str) -> None:
+        super().__init__(coordinator, entry)
         self._fraction = fraction
-        self._attr_unique_id = f"{coordinator.config_entry.unique_id}_next_collection_{slugify(fraction)}"
+        self._attr_unique_id = f"{entry.unique_id}_next_collection_{slugify(fraction)}"
         self._attr_translation_placeholders = {"fraction": fraction}
 
     @property

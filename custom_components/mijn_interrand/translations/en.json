@@ -9,6 +9,22 @@
           "password": "Password"
         }
       },
+      "address": {
+        "title": "Address",
+        "description": "Address used for the collection calendar of the Recycle! app (www.recycleapp.be).",
+        "data": {
+          "zipcode": "Postal code",
+          "street": "Street",
+          "house_number": "House number"
+        }
+      },
+      "recycling_park": {
+        "title": "Recycling park",
+        "description": "Choose the recycling park whose opening hours you want to follow.",
+        "data": {
+          "recycling_park": "Recycling park"
+        }
+      },
       "reauth_confirm": {
         "title": "Re-authenticate Mijn Interrand",
         "description": "The password for {username} is no longer accepted. Enter the new password.",
@@ -19,19 +35,47 @@
     },
     "error": {
       "invalid_auth": "Invalid username or password.",
-      "cannot_connect": "Could not connect to Mijn Interrand."
+      "cannot_connect": "Could not connect to Mijn Interrand.",
+      "recycle_cannot_connect": "Could not connect to the Recycle! app.",
+      "zipcode_not_found": "Postal code not found in the Recycle! app.",
+      "street_not_found": "Street not found for this postal code."
     },
     "abort": {
       "already_configured": "This account is already configured.",
-      "reauth_successful": "Re-authentication was successful."
+      "reauth_successful": "Re-authentication was successful.",
+      "reconfigure_successful": "The address was updated."
     }
   },
   "entity": {
     "sensor": {
-      "balance": { "name": "Balance" },
-      "last_transaction": { "name": "Last transaction" },
-      "last_weight": { "name": "Last weighed amount" },
-      "next_collection": { "name": "Next collection {fraction}" }
+      "balance": {
+        "name": "Balance"
+      },
+      "last_transaction": {
+        "name": "Last transaction"
+      },
+      "last_weight": {
+        "name": "Last weighed amount"
+      },
+      "next_collection": {
+        "name": "Next collection {fraction}"
+      }
+    },
+    "calendar": {
+      "waste_collection": {
+        "name": "Waste collection"
+      }
+    },
+    "binary_sensor": {
+      "recycling_park": {
+        "name": "Recycling park {park}"
+      }
+    }
+  },
+  "issues": {
+    "address_missing": {
+      "title": "Mijn Interrand: address not configured",
+      "description": "Add your address to get the full collection calendar (PMD, paper, ...) and the recycling park opening hours. Go to Settings > Devices & services > Mijn Interrand, open the menu of the entry and choose Reconfigure."
     }
   }
 }

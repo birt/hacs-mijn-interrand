@@ -9,6 +9,22 @@
           "password": "Wachtwoord"
         }
       },
+      "address": {
+        "title": "Adres",
+        "description": "Adres voor de ophaalkalender van de Recycle!-app (www.recycleapp.be).",
+        "data": {
+          "zipcode": "Postcode",
+          "street": "Straat",
+          "house_number": "Huisnummer"
+        }
+      },
+      "recycling_park": {
+        "title": "Recyclagepark",
+        "description": "Kies het recyclagepark waarvan je de openingsuren wil volgen.",
+        "data": {
+          "recycling_park": "Recyclagepark"
+        }
+      },
       "reauth_confirm": {
         "title": "Opnieuw aanmelden bij Mijn Interrand",
         "description": "Het wachtwoord voor {username} wordt niet meer aanvaard. Geef het nieuwe wachtwoord in.",
@@ -19,19 +35,47 @@
     },
     "error": {
       "invalid_auth": "Ongeldige gebruikersnaam of wachtwoord.",
-      "cannot_connect": "Kan geen verbinding maken met Mijn Interrand."
+      "cannot_connect": "Kan geen verbinding maken met Mijn Interrand.",
+      "recycle_cannot_connect": "Kan geen verbinding maken met de Recycle!-app.",
+      "zipcode_not_found": "Postcode niet gevonden in de Recycle!-app.",
+      "street_not_found": "Straat niet gevonden voor deze postcode."
     },
     "abort": {
       "already_configured": "Dit account is al geconfigureerd.",
-      "reauth_successful": "Opnieuw aanmelden is gelukt."
+      "reauth_successful": "Opnieuw aanmelden is gelukt.",
+      "reconfigure_successful": "Het adres is bijgewerkt."
     }
   },
   "entity": {
     "sensor": {
-      "balance": { "name": "Saldo" },
-      "last_transaction": { "name": "Laatste verrichting" },
-      "last_weight": { "name": "Laatst gewogen hoeveelheid" },
-      "next_collection": { "name": "Volgende inzameling {fraction}" }
+      "balance": {
+        "name": "Saldo"
+      },
+      "last_transaction": {
+        "name": "Laatste verrichting"
+      },
+      "last_weight": {
+        "name": "Laatst gewogen hoeveelheid"
+      },
+      "next_collection": {
+        "name": "Volgende inzameling {fraction}"
+      }
+    },
+    "calendar": {
+      "waste_collection": {
+        "name": "Afvalophaling"
+      }
+    },
+    "binary_sensor": {
+      "recycling_park": {
+        "name": "Recyclagepark {park}"
+      }
+    }
+  },
+  "issues": {
+    "address_missing": {
+      "title": "Mijn Interrand: adres niet ingesteld",
+      "description": "Voeg je adres toe voor de volledige ophaalkalender (PMD, papier, ...) en de openingsuren van het recyclagepark. Ga naar Instellingen > Apparaten & diensten > Mijn Interrand, open het menu van de integratie en kies Opnieuw configureren."
     }
   }
 }
