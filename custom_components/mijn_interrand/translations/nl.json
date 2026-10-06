@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mijn Interrand",
+        "description": "Meld je aan met de gegevens die je gebruikt op www.mijninterrand.be.",
+        "data": {
+          "username": "Gebruikersnaam",
+          "password": "Wachtwoord"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Opnieuw aanmelden bij Mijn Interrand",
+        "description": "Het wachtwoord voor {username} wordt niet meer aanvaard. Geef het nieuwe wachtwoord in.",
+        "data": {
+          "password": "Wachtwoord"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ongeldige gebruikersnaam of wachtwoord.",
+      "cannot_connect": "Kan geen verbinding maken met Mijn Interrand."
+    },
+    "abort": {
+      "already_configured": "Dit account is al geconfigureerd.",
+      "reauth_successful": "Opnieuw aanmelden is gelukt."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "balance": { "name": "Saldo" },
+      "last_transaction": { "name": "Laatste verrichting" },
+      "last_weight": { "name": "Laatst gewogen hoeveelheid" },
+      "next_collection": { "name": "Volgende inzameling {fraction}" }
+    }
+  }
+}
