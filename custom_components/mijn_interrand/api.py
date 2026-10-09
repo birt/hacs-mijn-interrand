@@ -193,7 +193,7 @@ class InterrandClient:
                 resp.raise_for_status()
                 await resp.read()
                 final_path = resp.url.path
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, TimeoutError) as err:
             raise InterrandError(f"Error connecting to Mijn Interrand: {err}") from err
 
         if final_path.lower().startswith(LOGON_PATH.lower()):
@@ -215,7 +215,7 @@ class InterrandClient:
                         if json:
                             return await resp.json(content_type=None)
                         return await resp.text()
-            except aiohttp.ClientError as err:
+            except (aiohttp.ClientError, TimeoutError) as err:
                 raise InterrandError(f"Error fetching {path}: {err}") from err
             except ValueError as err:
                 raise InterrandError(f"Invalid JSON from {path}: {err}") from err

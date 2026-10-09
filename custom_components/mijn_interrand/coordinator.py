@@ -18,10 +18,11 @@ from .const import (
     CONF_STREET_ID,
     CONF_ZIPCODE_ID,
     DOMAIN,
+    PORTAL_MAX_STALE,
     RECYCLE_LOOKAHEAD,
     RECYCLE_MAX_STALE,
-    RECYCLE_RETRY_INTERVAL,
     RECYCLE_UPDATE_INTERVAL,
+    RETRY_INTERVAL,
     TRANSACTION_COUNT,
     UPDATE_INTERVAL,
 )
@@ -54,14 +55,35 @@ class InterrandCoordinator(DataUpdateCoordinator[InterrandData]):
             update_interval=UPDATE_INTERVAL,
         )
         self.client = client
+        self._fetched_at: datetime | None = None
 
     async def _async_update_data(self) -> InterrandData:
         try:
-            return await self.client.fetch(TRANSACTION_COUNT)
+            result = await self.client.fetch(TRANSACTION_COUNT)
         except InterrandAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except InterrandError as err:
-            raise UpdateFailed(str(err)) from err
+            # The balance only changes after a collection or a payment, so a
+            # short outage of the portal should not make the sensors
+            # unavailable. Keep the last data and retry sooner, unless that
+            # data has become too old.
+            if (
+                self.data is None
+                or self._fetched_at is None
+                or dt_util.utcnow() - self._fetched_at > PORTAL_MAX_STALE
+            ):
+                raise UpdateFailed(str(err)) from err
+            _LOGGER.warning(
+                "Error fetching Mijn Interrand data, keeping data from %s and retrying in %s: %s",
+                dt_util.as_local(self._fetched_at).strftime("%Y-%m-%d %H:%M"),
+                RETRY_INTERVAL,
+                err,
+            )
+            self.update_interval = RETRY_INTERVAL
+            return self.data
+        self._fetched_at = dt_util.utcnow()
+        self.update_interval = UPDATE_INTERVAL
+        return result
 
 
 @dataclass
@@ -98,10 +120,10 @@ class RecycleCoordinator(DataUpdateCoordinator[RecycleData]):
             _LOGGER.warning(
                 "Error fetching Recycle! data, keeping data from %s and retrying in %s: %s",
                 dt_util.as_local(self.data.fetched_at).strftime("%Y-%m-%d %H:%M"),
-                RECYCLE_RETRY_INTERVAL,
+                RETRY_INTERVAL,
                 err,
             )
-            self.update_interval = RECYCLE_RETRY_INTERVAL
+            self.update_interval = RETRY_INTERVAL
             return self.data
         self.update_interval = RECYCLE_UPDATE_INTERVAL
         return result

@@ -7,9 +7,10 @@ DOMAIN = "mijn_interrand"
 UPDATE_INTERVAL = timedelta(hours=6)
 RECYCLE_UPDATE_INTERVAL = timedelta(hours=12)
 
-# When the Recycle! API fails, keep showing the last data and retry sooner.
-# Give up (sensors become unavailable) once the data is older than this.
-RECYCLE_RETRY_INTERVAL = timedelta(minutes=30)
+# When a fetch fails, keep showing the last data and retry sooner. Give up
+# (sensors become unavailable) once the data is older than the max age.
+RETRY_INTERVAL = timedelta(minutes=30)
+PORTAL_MAX_STALE = timedelta(days=1)
 RECYCLE_MAX_STALE = timedelta(days=3)
 
 # How far ahead to fetch the collection calendar.

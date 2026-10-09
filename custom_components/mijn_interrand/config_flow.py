@@ -50,7 +50,8 @@ class MijnInterrandConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _async_validate(self, username: str, password: str) -> tuple[dict[str, str], str | None]:
         """Log in and return (errors, address shown on the portal)."""
-        session = async_create_clientsession(self.hass)
+        # A throwaway session with its own cookie jar for this login attempt.
+        session = async_create_clientsession(self.hass, auto_cleanup=False)
         try:
             client = InterrandClient(session, username, password)
             data = await client.fetch(transaction_count=1)
@@ -60,7 +61,7 @@ class MijnInterrandConfigFlow(ConfigFlow, domain=DOMAIN):
             _LOGGER.exception("Error connecting to Mijn Interrand")
             return {"base": "cannot_connect"}, None
         finally:
-            await session.close()
+            session.detach()
         return {}, data.address
 
     def _suggest_from_portal(self, address: str | None) -> None:

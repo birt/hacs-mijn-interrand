@@ -183,7 +183,7 @@ class RecycleClient:
             ) as resp:
                 resp.raise_for_status()
                 return await resp.json(content_type=None)
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, TimeoutError) as err:
             raise RecycleError(f"Error fetching {path}: {err}") from err
         except ValueError as err:
             raise RecycleError(f"Invalid JSON from {path}: {err}") from err
